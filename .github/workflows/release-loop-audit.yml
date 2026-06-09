@@ -32,6 +32,8 @@ jobs:
           npm run build
           npm test
 
-      - name: Publish to npm (trusted publishing — no NPM_TOKEN)
+      - name: Publish to npm
         working-directory: tools/loop-audit
         run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
