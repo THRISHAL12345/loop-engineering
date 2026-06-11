@@ -1,10 +1,10 @@
 {
   "name": "@cobusgreyling/loop-cost",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Estimate daily token spend for loop engineering patterns by cadence and readiness level.",
   "type": "module",
   "bin": {
-    "loop-cost": "./dist/cli.js"
+    "loop-cost": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "bundle": "node scripts/bundle-registry.mjs",
-    "build": "npm run bundle && tsc",
+    "build": "npm run bundle && tsc && chmod +x dist/cli.js",
     "test": "npm run build && node --test test/estimator.test.mjs",
     "prepublishOnly": "npm test",
     "start": "node dist/cli.js"
