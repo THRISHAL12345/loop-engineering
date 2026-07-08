@@ -96,7 +96,7 @@ For developers using Grok, Claude Code, Codex, Cursor, and other AI coding agent
 | [loop-worktree](tools/loop-worktree/) | Manage isolated git worktrees per fix attempt — `npx @cobusgreyling/loop-worktree create --run-id <id> --pattern <p>` |
 | [Goal Engineering](https://github.com/cobusgreyling/goal-engineering) | **Companion:** loops discover, goals finish — `/goal` + [stack cookbook](https://github.com/cobusgreyling/goal-engineering/blob/main/docs/stack-cookbook.md) (`npx @cobusgreyling/goal doctor .`) |
 | [Stories](stories/) | Real wins and honest failures |
-| [Contributor quickstart](https://github.com/cobusgreyling/loop-engineering/discussions/123) | **Help wanted:** 17 scoped `good first issues` — comment *I'll take this* to get assigned |
+| [Contributor quickstart](https://github.com/cobusgreyling/loop-engineering/discussions/123) | **Help wanted:** 25 scoped `good first issues` — comment *I'll take this* to get assigned |
 | [Community update](https://github.com/cobusgreyling/loop-engineering/discussions/145) | **July 4:** 5.5k stars, traffic sources, contributor merges |
 | [Prior release notes](https://github.com/cobusgreyling/loop-engineering/discussions/89) | v1.5.0 — loop-sync, constraints, MCP server |
 | [Add your project](https://github.com/cobusgreyling/loop-engineering/discussions/92) | **Pinned:** Loop Ready badge + adopters list |
@@ -255,8 +255,10 @@ Addy Osmani:
 | Pick one | Issue |
 |----------|-------|
 | ~10 min | [#120 — Add your project to adopters](https://github.com/cobusgreyling/loop-engineering/issues/120) |
-| ~20 min | [#121 — QUICKSTART `loop-init --tool` values](https://github.com/cobusgreyling/loop-engineering/issues/121) |
-| ~1 hr | [#118](https://github.com/cobusgreyling/loop-engineering/issues/118) / [#119](https://github.com/cobusgreyling/loop-engineering/issues/119) — **failure stories welcome** |
+| ~15 min | [#227 — `loop-sync` subsection in QUICKSTART](https://github.com/cobusgreyling/loop-engineering/issues/227) |
+| ~30 min | [#147 — Cline appendix](https://github.com/cobusgreyling/loop-engineering/issues/147) · [#220 — Cursor CI Sweeper example](https://github.com/cobusgreyling/loop-engineering/issues/220) |
+| ~45 min | [#225 — Hermes PR Babysitter example](https://github.com/cobusgreyling/loop-engineering/issues/225) |
+| ~1 hr | [#230](https://github.com/cobusgreyling/loop-engineering/issues/230) / [#231](https://github.com/cobusgreyling/loop-engineering/issues/231) — **your story** (worktree week-two, multi-loop failure) |
 
 Comment **"I'll take this"** on any [`good first issue`](https://github.com/cobusgreyling/loop-engineering/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) for assignment.
 

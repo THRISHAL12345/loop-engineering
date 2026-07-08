@@ -44,5 +44,19 @@ create_issue "Share an Issue Triage week-one story" "good first issue,story" "$B
 create_issue "Add Opencode constraints example doc" "good first issue,docs" "$BODY_DIR/opencode-constraints-example.md"
 create_issue "Share a multi-loop coordination story" "good first issue,story" "$BODY_DIR/multi-loop-story.md"
 
+# Wave 3 — example gaps, QUICKSTART tools, community stories (Jul 2026)
+create_issue "Add Cursor CI Sweeper example doc" "good first issue,docs" "$BODY_DIR/cursor-ci-sweeper-example.md"
+create_issue "Add Cursor Post-Merge Cleanup example doc" "good first issue,docs" "$BODY_DIR/cursor-post-merge-cleanup-example.md"
+create_issue "Add Cursor Dependency Sweeper example doc" "good first issue,docs" "$BODY_DIR/cursor-dependency-sweeper-example.md"
+create_issue "Add Cursor Changelog Drafter example doc" "good first issue,docs" "$BODY_DIR/cursor-changelog-drafter-example.md"
+create_issue "Add Cursor Issue Triage example doc" "good first issue,docs" "$BODY_DIR/cursor-issue-triage-example.md"
+create_issue "Add Hermes PR Babysitter example doc" "good first issue,docs" "$BODY_DIR/hermes-pr-babysitter-example.md"
+create_issue "Add loop-sync subsection to QUICKSTART" "good first issue,docs" "$BODY_DIR/quickstart-loop-sync.md"
+create_issue "Add Amazon Q appendix to primitives matrix" "good first issue,docs" "$BODY_DIR/amazon-q-appendix.md"
+create_issue "Add Codeium appendix to primitives matrix" "good first issue,docs" "$BODY_DIR/codeium-appendix.md"
+create_issue "Share your loop-worktree week-two story" "good first issue,story" "$BODY_DIR/loop-worktree-week-two-story.md"
+create_issue "Share your multi-loop failure story" "good first issue,story" "$BODY_DIR/multi-loop-failure-story.md"
+create_issue "Add loop-init validation checklist doc" "good first issue,docs" "$BODY_DIR/loop-init-validation-checklist.md"
+
 echo "Done. Open backlog:"
 echo "https://github.com/cobusgreyling/loop-engineering/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22"
