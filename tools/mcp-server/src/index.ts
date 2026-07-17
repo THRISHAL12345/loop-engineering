@@ -3,6 +3,8 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import path from 'node:path';
+import { loadGateConfig, checkGate } from '@cobusgreyling/loop-gate';
 import {
   resolveProjectRoot,
   loadRegistry,
@@ -16,6 +18,7 @@ import {
   loadRunLog,
   loadSafetyDoc,
   listPatternDocs,
+  loadGatePolicy,
 } from './resolver.js';
 
 const server = new McpServer({
@@ -105,6 +108,23 @@ server.resource(
         uri: 'loop://safety',
         mimeType: 'text/markdown',
         text: content ?? 'No safety documentation found',
+      }],
+    };
+  },
+);
+
+server.resource(
+  'gate',
+  'loop://gate',
+  { description: 'gate.yaml — Machine-readable safety policy (path denylist, auto-merge allowlist)' },
+  async () => {
+    const root = await resolveProjectRoot();
+    const content = await loadGatePolicy(root);
+    return {
+      contents: [{
+        uri: 'loop://gate',
+        mimeType: 'text/yaml',
+        text: content ?? 'No gate.yaml policy found',
       }],
     };
   },
@@ -422,6 +442,43 @@ server.tool(
       lines.push('', `> Warning: realistic estimate exceeds daily cap of ${fmt(cost.suggested_daily_cap)}`);
     }
 
+    return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
+  },
+);
+
+server.tool(
+  'loop_gate_check',
+  'Evaluate a proposed change against the static safety policy (gate.yaml) to see if it triggers the denylist or exceeds thresholds',
+  {
+    action: z.enum(['commit', 'merge', 'auto-merge']).describe('What the loop is about to do'),
+    paths: z.array(z.string()).describe('List of changed file paths'),
+  },
+  async ({ action, paths }) => {
+    const root = await resolveProjectRoot();
+    const gateFile = path.join(root, 'gate.yaml');
+    
+    let config;
+    try {
+      config = await loadGateConfig(gateFile);
+    } catch (err: any) {
+      return { content: [{ type: 'text' as const, text: `Error loading gate policy: ${err.message}` }] };
+    }
+
+    const decision = checkGate({ config, action: action as any, paths });
+    
+    const lines = [
+      `## Gate Decision: ${decision.allowed ? '✅ ALLOWED' : '❌ BLOCKED'}`,
+      `- **Trigger:** ${decision.trigger}`,
+      `- **Reason:** ${decision.reason}`
+    ];
+    
+    if (decision.matchedPaths.length > 0) {
+      lines.push('', '**Matched Paths:**');
+      for (const p of decision.matchedPaths) {
+        lines.push(`- ${p}`);
+      }
+    }
+    
     return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
   },
 );
