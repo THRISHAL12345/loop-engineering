@@ -44,6 +44,11 @@ cd ../loop-context
 npm ci
 npm test
 
+echo "Building and testing loop-gate…"
+cd ../loop-gate
+npm ci
+npm test
+
 echo "Building and testing mcp-server…"
 cd ../mcp-server
 npm ci
