@@ -5,7 +5,7 @@ Last run: 2026-07-16T12:00:00Z (scheduled maintenance)
 ## High Priority (loop is acting or waiting on human)
 
 - Maintain loop readiness score ≥ 58 (current: **100**, level **L3**).
-- npm publish in flight: `loop-worktree` 1.2.0, `loop-context` 1.3.0 (tags pushed this run). **`loop-gate` 1.0.0** still needs a `release-loop-gate.yml` workflow before first publish.
+- npm publish in flight: `loop-worktree` 1.2.0, `loop-context` 1.3.0 (tags pushed this run).
 
 ## Watch List
 
