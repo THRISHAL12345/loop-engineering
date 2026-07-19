@@ -24,7 +24,7 @@ Claude Code / Codex: use `--tool claude` or `--tool codex` with `loop-init`.
 Start (Grok):
 
 ```
-/loop 6h Run dependency-triage on package manifests and lockfiles. Patch-only auto-fix in worktree + verifier (npm ci && npm test). Escalate majors, high-sev CVEs, and denylist packages. Update dependency-sweeper-state.md.
+/loop 6h Run dependency-triage on package manifests and lockfiles. Patch-only auto-fix in worktree + verifier (npm ci && npm test). Run loop-gate check before commit. Escalate majors, high-sev CVEs, and denylist packages. Update dependency-sweeper-state.md.
 ```
 
 ## What's Included
