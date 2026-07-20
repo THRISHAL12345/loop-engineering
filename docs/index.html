@@ -36,6 +36,7 @@ title: Loop Engineering — Showcase
       },
     });
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -616,6 +617,27 @@ npx @cobusgreyling/loop-audit . --suggest
   </div>
 </div>
 
+<section id="telemetry" class="wrap">
+  <p class="section-label">Dogfooding</p>
+  <h2 class="section-title">Live Telemetry</h2>
+  <p class="section-desc">Machine-readable data rendered directly from <a href="https://github.com/cobusgreyling/loop-engineering/blob/main/loop-run-log.md"><code>loop-run-log.md</code></a>. This repo runs loops.</p>
+  
+  <div class="telemetry-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-top: 32px; margin-bottom: 40px;">
+    <div class="card" style="padding: 20px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px;">
+      <h3 style="font-size: 1rem; margin-bottom: 16px; color: var(--text-muted);">Loop Readiness Score</h3>
+      <canvas id="scoreChart" height="200"></canvas>
+    </div>
+    <div class="card" style="padding: 20px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px;">
+      <h3 style="font-size: 1rem; margin-bottom: 16px; color: var(--text-muted);">Cumulative Tokens (Estimate)</h3>
+      <canvas id="tokenChart" height="200"></canvas>
+    </div>
+    <div class="card" style="padding: 20px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px;">
+      <h3 style="font-size: 1rem; margin-bottom: 16px; color: var(--text-muted);">Automated vs Escalated Runs</h3>
+      <canvas id="escalationChart" height="200"></canvas>
+    </div>
+  </div>
+</section>
+
 <section id="adopters" class="wrap">
   <p class="section-label">Community</p>
   <h2 class="section-title">Adopters</h2>
@@ -1023,11 +1045,102 @@ function setupMobileNav() {
   });
 }
 
+async function renderTelemetry() {
+  try {
+    const res = await fetch('https://raw.githubusercontent.com/cobusgreyling/loop-engineering/main/loop-run-log.md');
+    const text = await res.text();
+    
+    // Parse JSON lines from the markdown file
+    const lines = text.split('\n');
+    const data = [];
+    for (const line of lines) {
+      if (line.trim().startsWith('{')) {
+        try {
+          data.push(JSON.parse(line));
+        } catch (e) {}
+      }
+    }
+    
+    if (data.length === 0) return;
+    
+    // X-axis: dates
+    const labels = data.map(d => new Date(d.run_id).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+    
+    const scores = data.map(d => d.readiness_score || 0);
+    const tokens = data.map((d, i) => {
+      let sum = 0;
+      for (let j = 0; j <= i; j++) sum += (data[j].tokens_estimate || 0);
+      return sum;
+    });
+    const automatedRuns = data.map(d => d.outcome === 'escalated' ? 0 : 1);
+    const escalatedRuns = data.map(d => d.outcome === 'escalated' ? 1 : 0);
+    
+    // Chart options helpers
+    const chartOpts = (yCallback) => ({
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min: 0, grid: { color: '#2a3b52' }, ticks: { color: '#8e9baebd', callback: yCallback } },
+        x: { grid: { display: false }, ticks: { color: '#8e9baebd', maxTicksLimit: 10 } }
+      }
+    });
+
+    const ctxScore = document.getElementById('scoreChart');
+    if (ctxScore) {
+      new Chart(ctxScore, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{ data: scores, borderColor: '#3ee8c5', backgroundColor: 'rgba(62, 232, 197, 0.1)', borderWidth: 2, tension: 0.1, fill: true }]
+        },
+        options: { ...chartOpts(), scales: { ...chartOpts().scales, y: { ...chartOpts().scales.y, max: 100 } } }
+      });
+    }
+
+    const ctxToken = document.getElementById('tokenChart');
+    if (ctxToken) {
+      new Chart(ctxToken, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{ data: tokens, borderColor: '#5b9dff', backgroundColor: 'rgba(91, 157, 255, 0.15)', borderWidth: 2, tension: 0.3, fill: true }]
+        },
+        options: chartOpts(v => v >= 1000 ? (v/1000) + 'k' : v)
+      });
+    }
+
+    const ctxEscalation = document.getElementById('escalationChart');
+    if (ctxEscalation) {
+      new Chart(ctxEscalation, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Automated', data: automatedRuns, backgroundColor: '#3ee8c5' },
+            { label: 'Escalated', data: escalatedRuns, backgroundColor: '#ffb347' }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { stacked: true, grid: { display: false }, ticks: { color: '#8e9baebd', maxTicksLimit: 10 } },
+            y: { stacked: true, beginAtZero: true, grid: { color: '#2a3b52' }, ticks: { color: '#8e9baebd', stepSize: 1 } }
+          }
+        }
+      });
+    }
+  } catch (e) {
+    console.error('Failed to render telemetry:', e);
+  }
+}
+
 // Boot
 document.addEventListener('DOMContentLoaded', () => {
   setupMobileNav();
   setupPatternPicker();
   setupSimulator();
+  renderTelemetry();
 });
 </script>
 
