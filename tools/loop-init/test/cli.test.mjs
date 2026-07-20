@@ -183,3 +183,68 @@ test('loop-init does NOT scaffold circuit breaker for report-only daily-triage',
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('loop-init prints foundry CTA without --with-foundry', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'loop-init-cta-'));
+  try {
+    const { stdout } = await exec('node', [CLI, dir, '--pattern', 'daily-triage', '--tool', 'grok']);
+    assert.match(stdout, /--with-foundry/);
+    assert.match(stdout, /harness-foundry/);
+    await assert.rejects(() => access(path.join(dir, '.foundry', 'stack.yaml')));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('loop-init --with-foundry scaffolds minimal stack for daily-triage', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'loop-init-foundry-'));
+  try {
+    const { stdout } = await exec('node', [
+      CLI,
+      dir,
+      '--pattern',
+      'daily-triage',
+      '--tool',
+      'grok',
+      '--with-foundry',
+    ]);
+    await access(path.join(dir, '.foundry', 'stack.yaml'));
+    await access(path.join(dir, '.foundry', 'hooks', 'outerloop.yaml'));
+    await access(path.join(dir, '.foundry', 'README.md'));
+    const stack = await readFile(path.join(dir, '.foundry', 'stack.yaml'), 'utf8');
+    assert.match(stack, /model\/mock/);
+    assert.match(stack, /emit\/outerloop-evidence/);
+    assert.match(stdout, /Harness stack ready/);
+    assert.match(stdout, /preset: minimal/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('loop-init --with-foundry scaffolds implementer stack for ci-sweeper', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'loop-init-foundry-impl-'));
+  try {
+    const { stdout } = await exec('node', [
+      CLI,
+      dir,
+      '--pattern',
+      'ci-sweeper',
+      '--tool',
+      'grok',
+      '--with-foundry',
+    ]);
+    const stack = await readFile(path.join(dir, '.foundry', 'stack.yaml'), 'utf8');
+    assert.match(stack, /model\/anthropic/);
+    assert.match(stack, /tools\/git-worktree-write/);
+    assert.match(stack, /recovery\/revert-on-test-fail/);
+    assert.match(stdout, /preset: implementer/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('loop-init --help documents --with-foundry', async () => {
+  const { stdout } = await exec('node', [CLI, '--help']);
+  assert.match(stdout, /--with-foundry/);
+  assert.match(stdout, /harness-foundry|implementer|minimal/);
+});

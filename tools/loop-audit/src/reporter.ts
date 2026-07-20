@@ -52,6 +52,16 @@ export function formatHuman(r: AuditResult): string {
   lines.push(`Share: npx @cobusgreyling/loop-audit ${auditTargetArg(r.target)} --badge`);
   lines.push('Docs: docs/loop-design-checklist.md');
   lines.push('Tip: rerun with --suggest for ready-to-paste copy commands from templates/starters.');
+  if (r.score >= 80 && !r.signals.harness?.stack) {
+    lines.push('');
+    lines.push('Next after Loop Ready 80+: version this loop as a harness');
+    lines.push('  npx @cobusgreyling/loop-init . --with-foundry');
+    lines.push('  Showcase: https://github.com/cobusgreyling/harness-foundry/blob/main/docs/showcase.md');
+  } else if (r.signals.harness?.stack && !r.signals.harness.sessions) {
+    lines.push('');
+    lines.push('Harness stack present — run a session to earn session/trace credit:');
+    lines.push('  npx @cobusgreyling/harness-foundry run --goal "Verify harness wiring"');
+  }
   lines.push('');
   return lines.join('\n');
 }

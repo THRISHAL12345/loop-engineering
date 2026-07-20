@@ -62,6 +62,14 @@ export interface LoopSignals {
         present: boolean;
         evidence: string[];
     };
+    /** harness-foundry runtime signals (LE → Foundry funnel). */
+    harness: {
+        stack: boolean;
+        lock: boolean;
+        sessions: boolean;
+        emit: boolean;
+        host: boolean;
+    };
 }
 export interface Finding {
     level: 'ok' | 'warn' | 'fail';

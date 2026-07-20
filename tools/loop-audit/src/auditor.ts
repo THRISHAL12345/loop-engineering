@@ -29,6 +29,14 @@ export interface LoopSignals {
   };
   constraints: { present: boolean; hasConstraintsSkill: boolean };
   loopActivity: { present: boolean; evidence: string[] };
+  /** harness-foundry runtime signals (LE → Foundry funnel). */
+  harness: {
+    stack: boolean;
+    lock: boolean;
+    sessions: boolean;
+    emit: boolean;
+    host: boolean;
+  };
 }
 
 export interface Finding {
@@ -83,6 +91,12 @@ const SCORE_WEIGHTS = {
   constraintsFile: 4,
   constraintsSkill: 2,
   loopActivity: 6,
+  /** Harness Runtime (harness-foundry) — stack, lock, sessions, emit, host */
+  harnessStack: 4,
+  harnessLock: 1,
+  harnessSessions: 2,
+  harnessEmit: 1,
+  harnessHost: 1,
 } as const;
 
 const LEVEL_THRESHOLDS = {
@@ -304,6 +318,11 @@ export function computeScore(signals: LoopSignals): { score: number; level: 'L0'
   if (signals.constraints.present) score += w.constraintsFile;
   if (signals.constraints.hasConstraintsSkill) score += w.constraintsSkill;
   if (signals.loopActivity.present) score += w.loopActivity;
+  if (signals.harness.stack) score += w.harnessStack;
+  if (signals.harness.lock) score += w.harnessLock;
+  if (signals.harness.sessions) score += w.harnessSessions;
+  if (signals.harness.emit) score += w.harnessEmit;
+  if (signals.harness.host) score += w.harnessHost;
 
   score = Math.min(100, Math.max(0, score));
 
@@ -490,6 +509,52 @@ export async function auditProject(target: string): Promise<AuditResult> {
 
   const escalation = ESCALATION_HINTS.some((re) => re.test(governanceCorpus));
 
+  // Harness Runtime (harness-foundry) — versioned stack, sessions/traces, outerloop emit, host bridge
+  const foundryStackPath = path.join(root, '.foundry', 'stack.yaml');
+  const harnessStack = await fileExists(foundryStackPath);
+  const harnessLock =
+    (await fileExists(path.join(root, '.foundry', 'stack.lock'))) ||
+    (await fileExists(path.join(root, '.foundry', 'stack.lock.yaml')));
+
+  let harnessSessions = false;
+  const sessionsDir = path.join(root, '.foundry', 'sessions');
+  if (await fileExists(sessionsDir)) {
+    try {
+      const entries = await readdir(sessionsDir, { withFileTypes: true });
+      harnessSessions = entries.some(
+        (e) => e.isDirectory() || (e.isFile() && e.name !== '.gitkeep'),
+      );
+    } catch {
+      harnessSessions = false;
+    }
+  }
+
+  let harnessEmit = false;
+  if (harnessStack) {
+    try {
+      const stackTxt = await readFile(foundryStackPath, 'utf8');
+      if (/emit\/outerloop-evidence|outerloop/i.test(stackTxt)) harnessEmit = true;
+    } catch {}
+  }
+  if (!harnessEmit && (await fileExists(path.join(root, '.foundry', 'hooks', 'outerloop.yaml')))) {
+    harnessEmit = true;
+  }
+
+  const harnessHost =
+    (await fileExists(path.join(root, '.foundry', 'host', 'cursor'))) ||
+    (await fileExists(path.join(root, '.foundry', 'host', 'claude-code'))) ||
+    (await fileExists(path.join(root, '.cursor', 'rules', 'foundry.mdc'))) ||
+    (await fileExists(path.join(root, '.claude', 'foundry.md'))) ||
+    /foundry host integrate|harness-foundry/i.test(loopMdContent);
+
+  const harness = {
+    stack: harnessStack,
+    lock: harnessLock,
+    sessions: harnessSessions,
+    emit: harnessEmit,
+    host: harnessHost,
+  };
+
   const signals: LoopSignals = {
     stateFile: { present: statePaths.length > 0, paths: statePaths },
     loopConfig: { present: loopMd, path: loopMd ? 'LOOP.md' : undefined },
@@ -508,6 +573,7 @@ export async function auditProject(target: string): Promise<AuditResult> {
     cost: { budgetDoc, runLog, loopMdBudget, budgetSkill },
     governance: { toolScope, stallDetection, escalation },
     loopActivity,
+    harness,
   };
 
   if (!signals.stateFile.present) {
@@ -644,7 +710,45 @@ export async function auditProject(target: string): Promise<AuditResult> {
     findings.push({ level: 'ok', message: `Loop activity detected — real usage signals present (${signals.loopActivity.evidence.length} sources).` });
   }
 
+  if (!signals.harness.stack) {
+    findings.push({
+      level: 'warn',
+      message: 'No harness-foundry stack (.foundry/stack.yaml) — loop is designed but not versioned as a composable harness runtime.',
+    });
+    recommendations.push(
+      'Scaffold a harness: npx @cobusgreyling/loop-init . --with-foundry  (or npx @cobusgreyling/harness-foundry init --from loop-engineering:daily-triage)',
+    );
+  } else {
+    findings.push({ level: 'ok', message: 'Harness stack present (.foundry/stack.yaml).' });
+    if (!signals.harness.emit) {
+      findings.push({
+        level: 'warn',
+        message: 'Harness stack has no outerloop emit path (emit/outerloop-evidence or .foundry/hooks/outerloop.yaml).',
+      });
+      recommendations.push('Add emit/outerloop-evidence to the reliability layer, or enable .foundry/hooks/outerloop.yaml');
+    } else {
+      findings.push({ level: 'ok', message: 'Harness emit path to outerloop present.' });
+    }
+    if (!signals.harness.sessions) {
+      findings.push({
+        level: 'warn',
+        message: 'No harness sessions yet — run foundry once to produce traces.',
+      });
+      recommendations.push(
+        'npx @cobusgreyling/harness-foundry run --goal "Verify harness wiring" then re-audit',
+      );
+    } else {
+      findings.push({ level: 'ok', message: 'Harness session/trace evidence present.' });
+    }
+  }
+
   const { score, level, assessment } = computeScore(signals);
+
+  if (score >= 80 && !signals.harness.stack) {
+    recommendations.unshift(
+      'Loop Ready 80+: version this loop as a harness — npx @cobusgreyling/loop-init . --with-foundry · showcase https://github.com/cobusgreyling/harness-foundry/blob/main/docs/showcase.md',
+    );
+  }
 
   const costReady =
     signals.cost.budgetDoc &&

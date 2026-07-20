@@ -20,6 +20,8 @@ Run this in the root of any git project (no clone required):
 
 ```bash
 npx @cobusgreyling/loop-init . --pattern daily-triage --tool grok
+# Optional one-command funnel into harness-foundry:
+npx @cobusgreyling/loop-init . --pattern daily-triage --tool grok --with-foundry
 ```
 
 Swap `--pattern` for any pattern from [patterns/registry.yaml](../patterns/registry.yaml). List all patterns:
@@ -70,6 +72,14 @@ Scores 0–100 with concrete next steps. Re-run after each improvement. Paste a 
 
 ```bash
 npx @cobusgreyling/loop-audit . --badge
+```
+
+When the score is **≥ 80**, audit (and `loop-init`) nudge you to version the loop as a [harness-foundry](https://github.com/cobusgreyling/harness-foundry) stack — declarative runtime, traces, outerloop emit:
+
+```bash
+npx @cobusgreyling/loop-init . --with-foundry
+npx @cobusgreyling/harness-foundry validate
+npx @cobusgreyling/harness-foundry run --goal "Verify harness wiring"
 ```
 
 ### Catch drift before you schedule (`loop-sync`)

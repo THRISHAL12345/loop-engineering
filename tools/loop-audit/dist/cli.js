@@ -10,7 +10,7 @@ const suggest = args.includes('--suggest') || args.includes('--fix');
 const badge = args.includes('--badge');
 const help = args.includes('--help') || args.includes('-h');
 if (help) {
-    console.log(`loop-audit — Loop Readiness Score CLI (v1.6+)
+    console.log(`loop-audit — Loop Readiness Score CLI (v1.7+)
 
 Usage:
   loop-audit [path] [options]
@@ -21,6 +21,10 @@ Options:
   --suggest   Show copy-from-template commands for missing pieces (recommended on first runs)
   --badge     Markdown README badge (Loop Ready level + score)
   --help, -h  This help
+
+New in v1.7:
+  • Harness Runtime signals: .foundry/stack.yaml, stack.lock, sessions/traces, outerloop emit, host integrate
+  • Loop Ready 80+ funnel CTA → harness-foundry (loop-init --with-foundry)
 
 New in v1.6:
   • Governance signals: least-privilege tool scope, stall / no-progress detection, human-escalation path
@@ -90,6 +94,11 @@ try {
         console.log('  # Or scaffold automatically:');
         console.log('  npx @cobusgreyling/loop-init . --pattern daily-triage --tool grok');
         console.log('  npx @cobusgreyling/loop-cost --pattern daily-triage --level L1');
+        console.log('');
+        console.log('  # Version as a harness (harness-foundry) — one-command LE → Foundry funnel:');
+        console.log('  npx @cobusgreyling/loop-init . --pattern daily-triage --tool grok --with-foundry');
+        console.log('  # or: npx @cobusgreyling/harness-foundry init --from loop-engineering:daily-triage');
+        console.log('  npx @cobusgreyling/harness-foundry validate && npx @cobusgreyling/harness-foundry run --goal "Verify wiring"');
         console.log('');
         console.log('  # IMPORTANT (v1.4): After scaffolding, actually RUN a loop (report-only) and commit the updated STATE.md.');
         console.log('  # This creates the "loopActivity" evidence that pushes you toward real L2/L3 scores.');
