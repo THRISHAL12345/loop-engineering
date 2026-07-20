@@ -30,12 +30,38 @@ npm install --no-save yaml@2 ajv@8
 node scripts/validate-registry.mjs
 node scripts/check-loop-init-sync.mjs
 
-cd tools/loop-init
-npm ci
-npm test
+# loop-init depends on loop-audit; build sibling first and install from monorepo
+# so CI works before a new audit range is published to npm (chicken-and-egg).
+echo "Building and testing loop-audit…"
+(
+  cd tools/loop-audit
+  npm ci
+  npm test
+)
+
+echo "Building and testing loop-init…"
+(
+  cd tools/loop-init
+  # Always install monorepo sibling so CI/publish order does not require npm
+  # to already have the new loop-audit version (chicken-and-egg with ^1.7.0).
+  echo "Installing monorepo loop-audit sibling for loop-init"
+  cp package.json package.json.ci-bak
+  cp package-lock.json package-lock.json.ci-bak
+  node -e "
+    const fs = require('fs');
+    const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+    p.dependencies['@cobusgreyling/loop-audit'] = 'file:../loop-audit';
+    fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+  "
+  npm install
+  # Restore published package metadata (do not leave file: deps in package.json)
+  mv package.json.ci-bak package.json
+  mv package-lock.json.ci-bak package-lock.json
+  npm test
+)
 
 echo "Building and testing loop-sync…"
-cd ../loop-sync
+cd tools/loop-sync
 npm ci
 npm test
 
