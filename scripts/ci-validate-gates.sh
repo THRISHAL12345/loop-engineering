@@ -65,6 +65,11 @@ cd tools/loop-sync
 npm ci
 npm test
 
+echo "Building and testing goal-init…"
+cd ../goal-init
+npm ci
+npm test
+
 echo "Building and testing loop-context…"
 cd ../loop-context
 npm ci
