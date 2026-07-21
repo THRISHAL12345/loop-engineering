@@ -52,6 +52,6 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "@cobusgreyling/readiness-core": "file:../readiness-core"
+    "@cobusgreyling/readiness-core": "^1.0.0"
   }
 }
