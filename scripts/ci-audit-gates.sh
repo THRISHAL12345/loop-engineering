@@ -3,6 +3,14 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+echo "Building readiness-core…"
+(
+  cd "$REPO_ROOT/tools/readiness-core"
+  npm ci
+  npm run build
+)
+
 cd "$REPO_ROOT/tools/loop-audit"
 npm ci
 npm test

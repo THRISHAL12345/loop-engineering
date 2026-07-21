@@ -1,6 +1,7 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { Finding, BaseAuditResult, fileExists, scanSkillDirectories } from '@cobusgreyling/readiness-core';
 
 export interface LoopSignals {
   stateFile: { present: boolean; paths: string[] };
@@ -39,20 +40,9 @@ export interface LoopSignals {
   };
 }
 
-export interface Finding {
-  level: 'ok' | 'warn' | 'fail';
-  message: string;
-}
+export type { Finding };
 
-export interface AuditResult {
-  target: string;
-  score: number;
-  level: 'L0' | 'L1' | 'L2' | 'L3';
-  assessment: string;
-  signals: LoopSignals;
-  findings: Finding[];
-  recommendations: string[];
-}
+export interface AuditResult extends BaseAuditResult<'L0' | 'L1' | 'L2' | 'L3', LoopSignals> {}
 
 const STATE_FILES = [
   'STATE.md',
@@ -156,31 +146,8 @@ const ESCALATION_HINTS = [
   /\bexit 2\b/i,
 ];
 
-async function fileExists(p: string): Promise<boolean> {
-  try {
-    await stat(p);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function findSkills(root: string): Promise<string[]> {
-  const dirs = [
-    path.join(root, '.grok', 'skills'),
-    path.join(root, '.claude', 'skills'),
-    path.join(root, '.codex', 'skills'),
-    path.join(root, 'skills'),
-  ];
-  const found: string[] = [];
-  for (const dir of dirs) {
-    if (!(await fileExists(dir))) continue;
-    const entries = await readdir(dir, { withFileTypes: true });
-    for (const e of entries) {
-      if (e.isDirectory()) found.push(e.name);
-      if (e.isFile() && e.name === 'SKILL.md') found.push('root-skill');
-    }
-  }
+  const found = await scanSkillDirectories(root);
 
   // Claude Code agents and Codex subagents can host the verifier role
   const agentDirs = [

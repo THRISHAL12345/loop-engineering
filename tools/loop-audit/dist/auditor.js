@@ -1,6 +1,7 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { fileExists, scanSkillDirectories } from '@cobusgreyling/readiness-core';
 const STATE_FILES = [
     'STATE.md',
     'pr-babysitter-state.md',
@@ -97,34 +98,8 @@ const ESCALATION_HINTS = [
     /exit code 2/i,
     /\bexit 2\b/i,
 ];
-async function fileExists(p) {
-    try {
-        await stat(p);
-        return true;
-    }
-    catch {
-        return false;
-    }
-}
 async function findSkills(root) {
-    const dirs = [
-        path.join(root, '.grok', 'skills'),
-        path.join(root, '.claude', 'skills'),
-        path.join(root, '.codex', 'skills'),
-        path.join(root, 'skills'),
-    ];
-    const found = [];
-    for (const dir of dirs) {
-        if (!(await fileExists(dir)))
-            continue;
-        const entries = await readdir(dir, { withFileTypes: true });
-        for (const e of entries) {
-            if (e.isDirectory())
-                found.push(e.name);
-            if (e.isFile() && e.name === 'SKILL.md')
-                found.push('root-skill');
-        }
-    }
+    const found = await scanSkillDirectories(root);
     // Claude Code agents and Codex subagents can host the verifier role
     const agentDirs = [
         path.join(root, '.claude', 'agents'),

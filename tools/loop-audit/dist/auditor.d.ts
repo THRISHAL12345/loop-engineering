@@ -1,3 +1,4 @@
+import { Finding, BaseAuditResult } from '@cobusgreyling/readiness-core';
 export interface LoopSignals {
     stateFile: {
         present: boolean;
@@ -71,18 +72,8 @@ export interface LoopSignals {
         host: boolean;
     };
 }
-export interface Finding {
-    level: 'ok' | 'warn' | 'fail';
-    message: string;
-}
-export interface AuditResult {
-    target: string;
-    score: number;
-    level: 'L0' | 'L1' | 'L2' | 'L3';
-    assessment: string;
-    signals: LoopSignals;
-    findings: Finding[];
-    recommendations: string[];
+export type { Finding };
+export interface AuditResult extends BaseAuditResult<'L0' | 'L1' | 'L2' | 'L3', LoopSignals> {
 }
 export declare function computeScore(signals: LoopSignals): {
     score: number;

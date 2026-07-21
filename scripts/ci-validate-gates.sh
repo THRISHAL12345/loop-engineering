@@ -30,11 +30,23 @@ npm install --no-save yaml@2 ajv@8
 node scripts/validate-registry.mjs
 node scripts/check-loop-init-sync.mjs
 
-# loop-init depends on loop-audit; build sibling first and install from monorepo
-# so CI works before a new audit range is published to npm (chicken-and-egg).
+echo "Building and testing readiness-core…"
+(
+  cd tools/readiness-core
+  npm ci
+  npm run build
+)
+
 echo "Building and testing loop-audit…"
 (
   cd tools/loop-audit
+  npm ci
+  npm test
+)
+
+echo "Building and testing goal-audit…"
+(
+  cd tools/goal-audit
   npm ci
   npm test
 )
