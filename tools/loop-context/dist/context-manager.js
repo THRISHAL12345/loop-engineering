@@ -19,12 +19,10 @@ export const DEFAULT_BREAKER = {
     maxIterations: 10,
     stagnationThreshold: 3,
     noProgressThreshold: 5,
-    similarityThreshold: 0.85,
 };
 export const DEFAULT_PRUNE = {
     maxTraceLines: 8,
     window: 5,
-    similarityThreshold: 0.85,
 };
 // ── Error normalization ────────────────────────────────────────────
 /**
@@ -46,35 +44,6 @@ export function errorSignature(error) {
         .replace(/\b\d+\b/g, '#') // any remaining numbers (ports, ids, counts)
         .replace(/\s+/g, ' ')
         .trim();
-}
-/**
- * Calculate Jaccard similarity (0.0 to 1.0) using character trigrams.
- * Highly robust to minor phrasing variations.
- */
-function getTrigrams(str) {
-    const trigrams = new Set();
-    const padded = `  ${str.toLowerCase()}  `;
-    for (let i = 0; i < padded.length - 2; i++) {
-        trigrams.add(padded.substring(i, i + 3));
-    }
-    return trigrams;
-}
-export function calculateSimilarity(a, b) {
-    if (a === b)
-        return 1.0;
-    const setA = getTrigrams(a);
-    const setB = getTrigrams(b);
-    if (setA.size === 0 && setB.size === 0)
-        return 1.0;
-    if (setA.size === 0 || setB.size === 0)
-        return 0.0;
-    let intersection = 0;
-    for (const item of setA) {
-        if (setB.has(item))
-            intersection++;
-    }
-    const union = setA.size + setB.size - intersection;
-    return intersection / union;
 }
 function totalTokens(ledger) {
     return ledger.attempts.reduce((sum, a) => sum + (a.tokensUsed ?? 0), 0);
@@ -105,8 +74,7 @@ export function checkCircuitBreaker(ledger, config = DEFAULT_BREAKER) {
         const lastSig = errorSignature(failRun[failRun.length - 1].error ?? '');
         let same = 0;
         for (let i = failRun.length - 1; i >= 0; i--) {
-            const curSig = errorSignature(failRun[i].error ?? '');
-            if (calculateSimilarity(curSig, lastSig) >= config.similarityThreshold)
+            if (errorSignature(failRun[i].error ?? '') === lastSig)
                 same++;
             else
                 break;
@@ -189,7 +157,7 @@ export function pruneLedger(ledger, config = DEFAULT_PRUNE) {
         const sameFailure = prev !== undefined &&
             prev.outcome === 'failure' &&
             pruned.outcome === 'failure' &&
-            calculateSimilarity(errorSignature(prev.error ?? ''), errorSignature(pruned.error ?? '')) >= config.similarityThreshold;
+            errorSignature(prev.error ?? '') === errorSignature(pruned.error ?? '');
         if (sameFailure) {
             prev.repeated = (prev.repeated ?? 1) + 1;
             prev.iteration = pruned.iteration; // advance to the latest iteration
@@ -201,7 +169,7 @@ export function pruneLedger(ledger, config = DEFAULT_PRUNE) {
     return { goal: ledger.goal, startedAt: ledger.startedAt, attempts: collapsed };
 }
 /** Deterministic factual rollup of the whole run — no LLM required. */
-export function summarizeAttempts(ledger, similarityThreshold = 0.85) {
+export function summarizeAttempts(ledger) {
     const groups = new Map();
     const actions = new Set();
     let successes = 0;
@@ -217,17 +185,11 @@ export function summarizeAttempts(ledger, similarityThreshold = 0.85) {
             failures++;
             if (a.error) {
                 const sig = errorSignature(a.error);
-                let found = false;
-                for (const existing of groups.values()) {
-                    if (calculateSimilarity(existing.signature, sig) >= similarityThreshold) {
-                        existing.count++;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
+                const existing = groups.get(sig);
+                if (existing)
+                    existing.count++;
+                else
                     groups.set(sig, { signature: sig, count: 1, sample: a.error.split('\n')[0].trim() });
-                }
             }
         }
     }
@@ -248,7 +210,7 @@ export function summarizeAttempts(ledger, similarityThreshold = 0.85) {
  * (so it does not repeat itself), the last pruned error, and the breaker status.
  */
 export function buildContextInjection(ledger, breaker = DEFAULT_BREAKER, prune = DEFAULT_PRUNE) {
-    const summary = summarizeAttempts(ledger, breaker.similarityThreshold);
+    const summary = summarizeAttempts(ledger);
     const decision = checkCircuitBreaker(ledger, breaker);
     const pruned = pruneLedger(ledger, prune);
     const lines = [];

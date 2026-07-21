@@ -15,16 +15,6 @@ function parsePositiveIntFlag(raw, flag) {
     }
     return n;
 }
-function parsePositiveFloatFlag(raw, flag) {
-    if (raw === undefined || raw === '') {
-        throw new Error(`${flag} requires a positive number value.`);
-    }
-    const n = Number(raw);
-    if (Number.isNaN(n) || n <= 0) {
-        throw new Error(`${flag} must be a positive number; got "${raw}".`);
-    }
-    return n;
-}
 function parseArgs(argv) {
     const breaker = { ...DEFAULT_BREAKER };
     const prune = { ...DEFAULT_PRUNE };
@@ -90,11 +80,6 @@ function parseArgs(argv) {
             prune.window = parsePositiveIntFlag(argv[++i], '--window');
         else if (a === '--max-trace-lines')
             prune.maxTraceLines = parsePositiveIntFlag(argv[++i], '--max-trace-lines');
-        else if (a === '--similarity-threshold') {
-            const val = parsePositiveFloatFlag(argv[++i], '--similarity-threshold');
-            breaker.similarityThreshold = val;
-            prune.similarityThreshold = val;
-        }
     }
     return { help: false, ledger, ...base() };
 }
@@ -165,7 +150,6 @@ Options:
   --on-exceed <script>      On escalate, pipe the decision as JSON to this
                             script's stdin (fire-and-forget; its exit code
                             is not checked and does not change --check's own).
-  --similarity-threshold <f> Float 0.0-1.0 to cluster similar errors (default: ${DEFAULT_BREAKER.similarityThreshold})
   --window <n>              Attempts kept when pruning (default: ${DEFAULT_PRUNE.window})
   --max-trace-lines <n>     Stack-trace lines kept (default: ${DEFAULT_PRUNE.maxTraceLines})
   -h, --help                This help
