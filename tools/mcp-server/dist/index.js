@@ -3,7 +3,10 @@ import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mc
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import path from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { loadGateConfig, checkGate } from '@cobusgreyling/loop-gate';
+import { auditProject } from '@cobusgreyling/loop-audit/dist/auditor.js';
+import { checkCircuitBreaker, DEFAULT_BREAKER } from '@cobusgreyling/loop-context';
 import { resolveProjectRoot, loadRegistry, loadPatternDoc, listSkills, loadSkill, loadState, listStateFiles, loadLoopConfig, loadBudget, loadRunLog, loadSafetyDoc, listPatternDocs, loadGatePolicy, } from './resolver.js';
 const server = new McpServer({
     name: 'loop-engineering',
@@ -294,9 +297,9 @@ server.tool('loop_estimate_cost', 'Estimate daily token cost for a pattern at a 
     }
     const { cost } = pattern;
     const mix = level === 'L1'
-        ? { noop: 0.7, report: 0.3, action: 0 }
+        ? { noop: 0.6, report: 0.4, action: 0 }
         : level === 'L2'
-            ? { noop: 0.6, report: 0.25, action: 0.15 }
+            ? { noop: 0.5, report: 0.3, action: 0.2 }
             : { noop: 0.4, report: 0.35, action: 0.25 };
     const realisticPerRun = cost.tokens_noop * mix.noop
         + cost.tokens_report * mix.report
@@ -346,6 +349,57 @@ server.tool('loop_gate_check', 'Evaluate a proposed change against the static sa
             lines.push(`- ${p}`);
         }
     }
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
+});
+server.tool('loop_audit_score', 'Audit the current project for Loop Readiness (L0-L3), cost observability, governance, and harness runtime signals.', { target: z.string().optional().describe('Target directory to audit (default: .)') }, async ({ target }) => {
+    const root = await resolveProjectRoot(target);
+    try {
+        const result = await auditProject(root);
+        const lines = [
+            `## Loop Readiness: ${result.score}/100 (${result.level})`,
+            result.assessment,
+            ''
+        ];
+        for (const f of result.findings) {
+            const icon = f.level === 'ok' ? '✅' : f.level === 'warn' ? '⚠️' : '❌';
+            lines.push(`- ${icon} ${f.message}`);
+        }
+        if (result.recommendations.length > 0) {
+            lines.push('', '## Recommendations');
+            for (const r of result.recommendations)
+                lines.push(`- ${r}`);
+        }
+        return { content: [{ type: 'text', text: lines.join('\n') }] };
+    }
+    catch (err) {
+        return { content: [{ type: 'text', text: `Error running loop-audit: ${err.message}` }] };
+    }
+});
+server.tool('loop_check_breaker', 'Check the current circuit breaker status to detect stagnation, frustration, or if the agent should hand off to a human.', {}, async () => {
+    const root = await resolveProjectRoot();
+    const ledgerPath = path.join(root, 'loop-ledger.json');
+    let ledgerContent;
+    try {
+        ledgerContent = await readFile(ledgerPath, 'utf8');
+    }
+    catch {
+        return { content: [{ type: 'text', text: 'No loop-ledger.json found. Circuit breaker is inactive.' }] };
+    }
+    let ledger;
+    try {
+        ledger = JSON.parse(ledgerContent);
+    }
+    catch (err) {
+        return { content: [{ type: 'text', text: `Error parsing loop-ledger.json: ${err.message}` }] };
+    }
+    const decision = checkCircuitBreaker(ledger, DEFAULT_BREAKER);
+    const lines = [
+        `## Circuit Breaker: ${decision.escalate ? '🛑 ESCALATE' : '✅ OK'}`,
+        `- **Trigger:** ${decision.trigger}`,
+        `- **Reason:** ${decision.reason}`,
+        `- **Iterations Used:** ${decision.iterations} / ${DEFAULT_BREAKER.maxIterations}`,
+        `- **Tokens Used:** ${decision.tokensUsed}`,
+    ];
     return { content: [{ type: 'text', text: lines.join('\n') }] };
 });
 // ── Start ──────────────────────────────────────────────────────────

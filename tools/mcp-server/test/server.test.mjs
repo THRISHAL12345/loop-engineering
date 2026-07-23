@@ -383,7 +383,7 @@ test('server lists all tools over stdio', async () => {
   try {
     const res = await callServer(root, [{ id: 1, method: 'tools/list', params: {} }]);
     const names = res.get(1).result.tools.map(t => t.name);
-    assert.equal(names.length, 9);
+    assert.equal(names.length, 11);
     assert.ok(names.includes('loop_list_patterns'));
     assert.ok(names.includes('loop_estimate_cost'));
   } finally {
