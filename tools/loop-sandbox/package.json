@@ -1,13 +1,11 @@
 {
-  "name": "@cobusgreyling/loop-worktree",
-  "version": "1.2.0",
-  "description": "Manage isolated git worktrees for loop engineering attempts: create, mark, cleanup, and reconcile one worktree per fix attempt.",
+  "name": "@cobusgreyling/loop-sandbox",
+  "version": "1.0.0",
+  "description": "The ultimate L2 safety mechanism. Diverts agent execution into an ephemeral git worktree, captures their changes as a .patch file, and destroys the sandbox.",
   "type": "module",
   "bin": {
-    "loop-worktree": "dist/cli.js"
+    "loop-sandbox": "./dist/cli.js"
   },
-  "main": "dist/worktree.js",
-  "types": "dist/worktree.d.ts",
   "files": [
     "dist",
     "README.md"
@@ -25,25 +23,22 @@
     "loop-engineering",
     "ai-agents",
     "coding-agents",
-    "git-worktree",
-    "worktree",
-    "claude-code",
-    "grok",
-    "devtools"
+    "sandbox",
+    "security"
   ],
   "author": "Cobus Greyling",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cobusgreyling/loop-engineering.git",
-    "directory": "tools/loop-worktree"
+    "directory": "tools/loop-sandbox"
   },
   "homepage": "https://cobusgreyling.github.io/loop-engineering/",
-  "bugs": {
-    "url": "https://github.com/cobusgreyling/loop-engineering/issues"
-  },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "@cobusgreyling/loop-worktree": "^1.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
