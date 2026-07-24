@@ -1,18 +1,21 @@
 # loop-sandbox
 
-The ultimate L2 safety mechanism for Loop Engineering. Divert agent execution into an ephemeral git worktree, capture their changes as a reviewable `.patch` file, and instantly destroy the sandbox.
+Ephemeral worktree isolation for Loop Engineering. Divert agent execution into an isolated git worktree, capture their changes as a reviewable `.patch` file, and instantly destroy the sandbox.
 
 ## Why loop-sandbox?
 
 Unattended AI agents (loops) running directly in your main working tree can cause damage, overwrite untracked files, or make it incredibly tedious to untangle failed execution attempts.
 
-`loop-sandbox` solves this by acting as an invisible air-gap:
+`loop-sandbox` solves this by providing **ephemeral worktree isolation**:
 1. It automatically creates an isolated git worktree for the agent to run in.
 2. The agent runs its command, interacting with the codebase completely naturally.
-3. When the command finishes, `loop-sandbox` automatically captures *everything* the agent did (including new untracked files) into a clean `.patch` file.
+3. When the command finishes, `loop-sandbox` automatically captures the agent's edits (including new untracked files) into a clean `.patch` file.
 4. It nukes the worktree, keeping your main repo completely clean.
 
 A human can then safely review the patch and apply it with one keystroke.
+
+> [!WARNING]
+> **Isolation Limits:** This is not a containerized air-gap. The agent process retains full filesystem and network access. It can escape the worktree (e.g. `../../`), and changes outside the worktree or to `.gitignored` files will **not** be captured in the patch. This tool is complementary to [docs/safety.md](../../docs/safety.md) and does not replace OS-level sandboxing for hostile code.
 
 ## Installation
 
@@ -21,6 +24,13 @@ npm install -g @cobusgreyling/loop-sandbox
 # or run directly via npx
 npx @cobusgreyling/loop-sandbox run -- <command>
 ```
+
+> [!IMPORTANT]
+> **Required Gitignores:** You must add the following to your project's `.gitignore` to prevent patches and worktree manifests from being committed:
+> ```
+> .loop-sandbox/
+> .loop-worktrees/
+> ```
 
 ## Usage
 
@@ -32,21 +42,27 @@ loop-sandbox <command> [options]
 
 | Command | Description |
 |---------|-------------|
-| `run -- <cmd>` | Run an agent command inside the air-gapped sandbox |
+| `run [opts] -- <cmd>` | Run an agent command inside the isolated sandbox |
 | `review` / `list` | List isolated patches ready for human review |
 
-### Examples
+### Options for `run`
 
-**Running a risky agent command:**
-```bash
-# The agent tries to rewrite a file, but the sandbox intercepts it
-npx @cobusgreyling/loop-sandbox run -- bash -c "echo 'hello' > test.txt"
-```
+| Option | Description |
+|--------|-------------|
+| `--shell` | Spawns the command using `shell: true` (for bash -c, etc.) |
+| `--base <branch>` | The base branch for the worktree (defaults to current HEAD) |
+
+### Examples
 
 **Running a tool via an agent:**
 ```bash
 # Safely let an agent run your linter/formatter without polluting your working tree
-npx @cobusgreyling/loop-sandbox run -- npm run lint:fix
+npx @cobusgreyling/loop-sandbox run -- npx my-agent
+```
+
+**Running a shell command:**
+```bash
+npx @cobusgreyling/loop-sandbox run --shell -- bash -c "echo 'hello' > test.txt"
 ```
 
 **Reviewing and applying patches:**
@@ -62,4 +78,4 @@ npx @cobusgreyling/loop-sandbox review
 
 ## How it works
 
-Under the hood, `loop-sandbox` leverages `@cobusgreyling/loop-worktree` and native `git worktree` primitives. It creates a temporary branch, spawns your process with its `cwd` set to the isolated tree, runs `git diff --cached` to generate the patch, and uses `git worktree remove --force` to clean up.
+Under the hood, `loop-sandbox` leverages `@cobusgreyling/loop-worktree` and native `git worktree` primitives. It creates a temporary branch from your current HEAD, spawns your process with its `cwd` set to the isolated tree, runs `git diff --cached` to generate the patch, and uses `git worktree remove --force` to clean up.

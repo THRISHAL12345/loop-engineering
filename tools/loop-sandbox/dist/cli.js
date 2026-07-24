@@ -11,23 +11,36 @@ async function main() {
     const root = process.cwd();
     if (command === 'run') {
         const runArgs = args.slice(1);
-        // Check if the user passed `--` to separate the command
         let targetCommandIndex = runArgs.findIndex(a => a === '--');
-        let targetCommandArgs;
-        if (targetCommandIndex !== -1) {
-            targetCommandArgs = runArgs.slice(targetCommandIndex + 1);
-        }
-        else {
-            targetCommandArgs = runArgs;
-        }
-        if (targetCommandArgs.length === 0) {
-            console.error('❌ Missing command to run. Usage: loop-sandbox run -- <command>');
+        if (targetCommandIndex === -1) {
+            console.error('❌ Missing `--` separator before the command. Usage: loop-sandbox run [options] -- <command>');
             process.exit(1);
+        }
+        const sandboxOptionsArgs = runArgs.slice(0, targetCommandIndex);
+        const targetCommandArgs = runArgs.slice(targetCommandIndex + 1);
+        if (targetCommandArgs.length === 0) {
+            console.error('❌ Missing command to run. Usage: loop-sandbox run [options] -- <command>');
+            process.exit(1);
+        }
+        let shell = false;
+        let base;
+        for (let i = 0; i < sandboxOptionsArgs.length; i++) {
+            const arg = sandboxOptionsArgs[i];
+            if (arg === '--shell') {
+                shell = true;
+            }
+            else if (arg === '--base') {
+                base = sandboxOptionsArgs[++i];
+            }
+            else {
+                console.error(`❌ Unknown option: ${arg}`);
+                process.exit(1);
+            }
         }
         const exe = targetCommandArgs[0];
         const exeArgs = targetCommandArgs.slice(1);
         try {
-            const result = await runInSandbox(root, exe, exeArgs);
+            const result = await runInSandbox(root, exe, exeArgs, { shell, base });
             if (result.hasChanges && result.patchFile) {
                 console.log('\n==================================================');
                 console.log(`🎉 Run completed. Changes isolated successfully!`);
@@ -38,9 +51,9 @@ async function main() {
                 console.log('==================================================\n');
             }
             else {
-                console.log(`\nℹ️ Run completed with exit code ${result.exitCode}. No changes detected.`);
+                console.log(`\nℹ️ Run completed with exit code ${result.exitCode ?? 0}. No changes detected.`);
             }
-            process.exit(result.exitCode ?? 1);
+            process.exit(result.exitCode ?? 0);
         }
         catch (err) {
             console.error(`❌ sandbox error: ${err.message}`);
@@ -75,15 +88,19 @@ async function main() {
 }
 function printHelp() {
     console.log(`
-loop-sandbox — The ultimate L2 safety mechanism for agents.
+loop-sandbox — Ephemeral worktree isolation for agents.
 
 Usage:
-  loop-sandbox run -- <command>    Run an agent command inside an air-gapped git worktree.
-  loop-sandbox review              List isolated patches ready for human review.
+  loop-sandbox run [options] -- <command>    Run an agent command inside an isolated worktree.
+  loop-sandbox review                        List isolated patches ready for human review.
+  
+Options for 'run':
+  --shell      Run the command inside a shell environment (shell: true)
+  --base       The base branch to branch the worktree from (default: current HEAD)
   
 Examples:
-  npx @cobusgreyling/loop-sandbox run -- bash -c "echo 'hello' > test.txt"
-  npx @cobusgreyling/loop-sandbox run -- npm run lint:fix
+  npx @cobusgreyling/loop-sandbox run -- node script.js
+  npx @cobusgreyling/loop-sandbox run --shell -- bash -c "echo 'hello' > test.txt"
   npx @cobusgreyling/loop-sandbox review
 `);
 }

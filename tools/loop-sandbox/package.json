@@ -34,8 +34,11 @@
     "directory": "tools/loop-sandbox"
   },
   "homepage": "https://cobusgreyling.github.io/loop-engineering/",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
-    "@cobusgreyling/loop-worktree": "file:../loop-worktree"
+    "@cobusgreyling/loop-worktree": "^1.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
