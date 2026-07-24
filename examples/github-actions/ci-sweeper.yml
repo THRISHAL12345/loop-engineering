@@ -43,6 +43,7 @@ jobs:
           pattern: 'ci-sweeper'
           level: 'L2'
           sandbox: 'true'
+          sandbox-shell: 'true'
           command: |
             echo "::notice::Wire to agent: classify failure, worktree fix, verifier, open PR."
             echo "See patterns/ci-sweeper.md and docs/safety.md"

@@ -14,7 +14,11 @@ inputs:
     required: false
     default: 'L1'
   sandbox:
-    description: 'Run the command inside an air-gapped git worktree (loop-sandbox)'
+    description: 'Run the command inside an ephemeral isolated git worktree (loop-sandbox)'
+    required: false
+    default: 'false'
+  sandbox-shell:
+    description: 'Run the sandbox command inside a shell environment (--shell)'
     required: false
     default: 'false'
 
@@ -34,7 +38,12 @@ runs:
 
     - name: Run Agent (Sandbox)
       if: ${{ inputs.sandbox == 'true' }}
-      run: npx --yes @cobusgreyling/loop-sandbox run -- ${{ inputs.command }}
+      run: |
+        if [ "${{ inputs.sandbox-shell }}" == "true" ]; then
+          npx --yes @cobusgreyling/loop-sandbox run --shell -- ${{ inputs.command }}
+        else
+          npx --yes @cobusgreyling/loop-sandbox run -- ${{ inputs.command }}
+        fi
       shell: bash
 
     - name: Run Agent (Direct)
