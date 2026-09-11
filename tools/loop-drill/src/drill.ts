@@ -267,9 +267,34 @@ function ledgerOf(attempts: Ledger['attempts']): Ledger {
 }
 
 /**
+ * Errors with no shared structure, used for the no-progress drill.
+ *
+ * They must stay dissimilar *after* errorSignature() normalization, which
+ * collapses every number to '#'. Errors that differ only by a number ("module 1
+ * not found", "module 2 not found") normalize to the same signature and trip
+ * stagnation instead — the drill would pass while leaving no-progress
+ * unexercised.
+ */
+const DISTINCT_ERRORS = [
+  'TypeError: undefined is not a function',
+  'ECONNREFUSED connecting to the database',
+  'SyntaxError: unexpected token in JSON',
+  'AssertionError: expected ok but got null',
+  'Permission denied while writing the artifact',
+  'OutOfMemoryError during the bundle step',
+  'Segmentation fault in the native addon',
+];
+
+/**
  * Exercise loop-context's circuit breaker with synthetic ledgers: repeated
- * identical failures must trip stagnation, a long failure run must trip
- * no-progress, blowing the token budget must trip, and a healthy run must not.
+ * identical failures must trip stagnation, a long run of unrelated failures
+ * must trip no-progress, blowing the token budget must trip, and a healthy run
+ * must not.
+ *
+ * Each drill asserts the *specific* trigger, not merely that the breaker
+ * escalated. Escalating for another reason means the rule under test is still
+ * unproven — the same standard the gate drills apply to `trigger !==
+ * 'denylist'`.
  */
 export function runBreakerDrills(config: CircuitBreakerConfig = DEFAULT_BREAKER): DrillResult[] {
   const results: DrillResult[] = [];
@@ -277,7 +302,7 @@ export function runBreakerDrills(config: CircuitBreakerConfig = DEFAULT_BREAKER)
   // Sensitivity: the same error repeated trips stagnation.
   {
     const id = 'breaker.stagnation';
-    const name = `${config.stagnationThreshold} identical failures trip the breaker`;
+    const name = `${config.stagnationThreshold} identical failures trip stagnation`;
     const mode: FailureMode = 'Infinite Fix Loop';
     const attempts = Array.from({ length: config.stagnationThreshold }, (_, i) => ({
       iteration: i + 1,
@@ -287,36 +312,48 @@ export function runBreakerDrills(config: CircuitBreakerConfig = DEFAULT_BREAKER)
     }));
     const decision = checkCircuitBreaker(ledgerOf(attempts), config);
     results.push(
-      decision.escalate
-        ? pass(id, name, mode, 'sensitivity', 'escalate', `escalated (${decision.trigger})`)
+      decision.trigger === 'stagnation'
+        ? pass(id, name, mode, 'sensitivity', 'escalate via stagnation', decision.reason)
         : fail(
             id,
             name,
             mode,
             'sensitivity',
-            'escalate',
-            'continued',
-            'The loop would keep retrying an identical failure — the exact shape of an Infinite Fix Loop.',
+            'escalate via stagnation',
+            decision.escalate ? `escalated via ${decision.trigger}` : 'continued',
+            decision.escalate
+              ? 'The breaker stopped the loop, but not by the rule under test — stagnation stays unproven.'
+              : 'The loop would keep retrying an identical failure — the exact shape of an Infinite Fix Loop. Check similarityThreshold: it is a 0.0-1.0 fraction, and a percentage (e.g. 95) never matches.',
           ),
     );
   }
 
-  // Sensitivity: a long run of distinct failures trips no-progress.
+  // Sensitivity: a long run of unrelated failures trips no-progress.
   {
     const id = 'breaker.no-progress';
-    const name = `${config.noProgressThreshold} consecutive failures trip the breaker`;
+    const name = `${config.noProgressThreshold} unrelated failures trip no-progress`;
     const mode: FailureMode = 'Infinite Fix Loop';
     const attempts = Array.from({ length: config.noProgressThreshold }, (_, i) => ({
       iteration: i + 1,
       action: `attempt strategy ${i + 1}`,
       outcome: 'failure' as const,
-      error: `Distinct failure number ${i + 1}: module ${i + 1} not found`,
+      error: DISTINCT_ERRORS[i % DISTINCT_ERRORS.length],
     }));
     const decision = checkCircuitBreaker(ledgerOf(attempts), config);
     results.push(
-      decision.escalate
-        ? pass(id, name, mode, 'sensitivity', 'escalate', `escalated (${decision.trigger})`)
-        : fail(id, name, mode, 'sensitivity', 'escalate', 'continued'),
+      decision.trigger === 'no-progress'
+        ? pass(id, name, mode, 'sensitivity', 'escalate via no-progress', decision.reason)
+        : fail(
+            id,
+            name,
+            mode,
+            'sensitivity',
+            'escalate via no-progress',
+            decision.escalate ? `escalated via ${decision.trigger}` : 'continued',
+            decision.escalate
+              ? 'The breaker stopped the loop, but not by the rule under test — no-progress stays unproven.'
+              : undefined,
+          ),
     );
   }
 
@@ -335,9 +372,16 @@ export function runBreakerDrills(config: CircuitBreakerConfig = DEFAULT_BREAKER)
     ];
     const decision = checkCircuitBreaker(ledgerOf(attempts), config);
     results.push(
-      decision.escalate
-        ? pass(id, name, mode, 'sensitivity', 'escalate', `escalated (${decision.trigger})`)
-        : fail(id, name, mode, 'sensitivity', 'escalate', 'continued'),
+      decision.trigger === 'token-budget'
+        ? pass(id, name, mode, 'sensitivity', 'escalate via token-budget', decision.reason)
+        : fail(
+            id,
+            name,
+            mode,
+            'sensitivity',
+            'escalate via token-budget',
+            decision.escalate ? `escalated via ${decision.trigger}` : 'continued',
+          ),
     );
   } else {
     results.push(

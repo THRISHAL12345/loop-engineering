@@ -17,13 +17,26 @@
  * Both directions are required. A verifier that rejects everything catches
  * every mutant while being worthless, and the control run is what exposes it.
  */
-import { execFile } from 'node:child_process';
+import { exec as execShellCb, execFile as execFileCb } from 'node:child_process';
 import { readFile, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { isMutationCandidate, mutate } from './mutations.js';
 import { skip } from './drill.js';
-const exec = promisify(execFile);
+/**
+ * Two spawn helpers, kept honest about their signatures.
+ *
+ * `execShell` runs a caller-supplied command string (--verifier-cmd, --setup)
+ * through a shell, which is what those flags mean. `execFile` runs git with an
+ * argv array and no shell, so repo paths never reach a shell for re-parsing.
+ *
+ * Earlier this file called promisify(execFile) with an options object in the
+ * `args` position behind an `as never` cast -- it happened to work because Node
+ * detects a non-array second argument, but it hid the real signature from tsc
+ * and made timeout/killed handling harder to reason about.
+ */
+const execShell = promisify(execShellCb);
+const exec = promisify(execFileCb);
 /**
  * Run the verifier in `cwd`. Exit 0 means "accepted this change"; anything
  * else — including a timeout — means "rejected". A verifier that cannot be
@@ -31,9 +44,8 @@ const exec = promisify(execFile);
  */
 export async function runVerifier(command, cwd, timeoutMs) {
     try {
-        const { stdout, stderr } = await exec(command, {
+        const { stdout, stderr } = await execShell(command, {
             cwd,
-            shell: true,
             timeout: timeoutMs,
             maxBuffer: 8 * 1024 * 1024,
         });

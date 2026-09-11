@@ -70,8 +70,14 @@ export interface GateDrillOptions {
 export declare function runGateDrills(options: GateDrillOptions): DrillResult[];
 /**
  * Exercise loop-context's circuit breaker with synthetic ledgers: repeated
- * identical failures must trip stagnation, a long failure run must trip
- * no-progress, blowing the token budget must trip, and a healthy run must not.
+ * identical failures must trip stagnation, a long run of unrelated failures
+ * must trip no-progress, blowing the token budget must trip, and a healthy run
+ * must not.
+ *
+ * Each drill asserts the *specific* trigger, not merely that the breaker
+ * escalated. Escalating for another reason means the rule under test is still
+ * unproven — the same standard the gate drills apply to `trigger !==
+ * 'denylist'`.
  */
 export declare function runBreakerDrills(config?: CircuitBreakerConfig): DrillResult[];
 export declare function buildReport(results: DrillResult[]): DrillReport;

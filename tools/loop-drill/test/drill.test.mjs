@@ -117,16 +117,82 @@ describe('runBreakerDrills', () => {
     assert.equal(byId(withBudget, 'breaker.token-budget').outcome, 'passed');
   });
 
+  // No wrong-trigger test for breaker.token-budget: its ledger is a single
+  // successful attempt, so stagnation/no-progress (which need failures) and
+  // max-iterations (checked after the budget) are all unreachable. There is no
+  // config in which it escalates for another reason, so weakening its
+  // assertion to decision.escalate is not observable from outside.
+
   test('token budget drill is attributed to Token Burn', () => {
     const withBudget = runBreakerDrills({ ...DEFAULT_BREAKER, tokenBudget: 1000 });
     assert.equal(byId(withBudget, 'breaker.token-budget').failureMode, 'Token Burn');
   });
 
-  test('a breaker with an unreachable stagnation threshold is reported as failed', () => {
-    // maxIterations below stagnationThreshold means the synthetic ledger trips
-    // the iteration cap first; the stagnation rule itself stays unproven.
-    const results = runBreakerDrills({ ...DEFAULT_BREAKER, stagnationThreshold: 99, maxIterations: 1000 });
-    assert.equal(byId(results, 'breaker.stagnation').outcome, 'passed');
+  test('each drill is credited only for its own trigger', () => {
+    // Escalating for another reason leaves the rule under test unproven, so the
+    // reported reason must name the rule the drill exercises.
+    assert.match(byId(results, 'breaker.stagnation').expected, /stagnation/);
+    assert.match(byId(results, 'breaker.no-progress').expected, /no-progress/);
+    assert.match(byId(results, 'breaker.no-progress').actual, /no.progress/i);
+  });
+
+  test('a percentage similarityThreshold leaves stagnation unproven', () => {
+    // similarityThreshold is a 0.0-1.0 fraction. Setting it to 95 (meaning
+    // "95%") means identical errors never compare as similar, so a loop retrying
+    // the same failure forever is never stopped. The drill must report that.
+    const misconfigured = runBreakerDrills({ ...DEFAULT_BREAKER, similarityThreshold: 95 });
+    const stagnation = byId(misconfigured, 'breaker.stagnation');
+    assert.equal(stagnation.outcome, 'failed');
+    assert.equal(stagnation.actual, 'continued');
+    assert.match(stagnation.detail, /Infinite Fix Loop/);
+    assert.match(stagnation.detail, /similarityThreshold/);
+  });
+
+  test('escalating via the wrong trigger leaves stagnation unproven', () => {
+    // The case that separates "the breaker fired" from "the rule under test
+    // fired". Here the breaker DOES escalate, so a drill asserting only
+    // decision.escalate would pass while stagnation was never exercised.
+    const wrongTrigger = runBreakerDrills({
+      ...DEFAULT_BREAKER,
+      similarityThreshold: 95,
+      noProgressThreshold: 1,
+    });
+    const stagnation = byId(wrongTrigger, 'breaker.stagnation');
+    assert.equal(stagnation.outcome, 'failed');
+    assert.equal(stagnation.actual, 'escalated via no-progress');
+    assert.match(stagnation.detail, /not by the rule under test/);
+  });
+
+  test('an iteration cap that fires first also leaves stagnation unproven', () => {
+    const capped = runBreakerDrills({
+      ...DEFAULT_BREAKER,
+      similarityThreshold: 95,
+      maxIterations: 2,
+    });
+    const stagnation = byId(capped, 'breaker.stagnation');
+    assert.equal(stagnation.outcome, 'failed');
+    assert.equal(stagnation.actual, 'escalated via max-iterations');
+  });
+
+  test('stagnation swallowing every error leaves no-progress unproven', () => {
+    // similarityThreshold 0 makes every error count as "the same error", so
+    // stagnation fires on the no-progress drill's unrelated failures. The
+    // breaker still escalates, so only a trigger-specific assertion catches it.
+    const swallowed = runBreakerDrills({ ...DEFAULT_BREAKER, similarityThreshold: 0 });
+    const noProgress = byId(swallowed, 'breaker.no-progress');
+    assert.equal(noProgress.outcome, 'failed');
+    assert.equal(noProgress.actual, 'escalated via stagnation');
+    assert.match(noProgress.detail, /not by the rule under test/);
+  });
+
+  test('no-progress uses errors that stay distinct after signature normalization', () => {
+    // errorSignature() collapses every number to '#', so errors differing only
+    // by a number ("module 1" / "module 2") normalize to the same signature and
+    // trip stagnation instead -- passing the drill while leaving no-progress
+    // unexercised. This asserts the real trigger, which is what catches that.
+    const r = byId(results, 'breaker.no-progress');
+    assert.equal(r.outcome, 'passed');
+    assert.doesNotMatch(r.actual, /stagnation/i);
   });
 });
 
